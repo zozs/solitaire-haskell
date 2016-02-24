@@ -100,7 +100,7 @@ a very sexy way by using monads -- if only my Haskell skills were better.
 5. Find output card. Look at top card. Convert it to a number from 1 to 53.
    Count down that many cards. Write the card after the one you counted to on a
    piece of paper. If you hit a joker, don't write anything down and start with
-   step 1 again.
+   step 1 again (this last part is done in keystream function above)
 
 > topValue = ((+1) . min 52 . head)
 > step5 deck = head $ drop (topValue deck) deck
@@ -139,25 +139,24 @@ The following are internal unit tests for various parts of the code.
 > unitTestRunner = map errorCatcher $ intercalate [] [testStep1,testStep2,testStep3,testStep4]
 > errorCatcher False = error "Unit test failed"
 > errorCatcher True = True
+> testStep f cases = map (uncurry (==)) $ zip (map (f . fst) cases) (map snd cases)
+
+First we have the input, then the expected result.
 
 For step 1 of keystream generation.
 
-> testStep1 = [testStep1_1, testStep1_2, testStep1_3]
-> testStep1_1 = step1 [0,1,52,2,3,4,5] == [0,1,2,52,3,4,5]
-> testStep1_2 = step1 [0,1,2,3,52] == [0,52,1,2,3]
-> testStep1_3 = step1 [52,0,1,2,3,4,5] == [0,52,1,2,3,4,5]
+> testStep1Cases = [([0,1,52,2,3,4,5], [0,1,2,52,3,4,5])
+>                  ,([0,1,2,3,52]    , [0,52,1,2,3])
+>                  ,([52,0,1,2,3,4,5], [0,52,1,2,3,4,5])]
+> testStep1 = testStep step1 testStep1Cases
 
 For step 2 of keystream generation.
-
- > testStep2 = [testStep2_1, testStep2_2, testStep2_3, testStep2_4]
-
-First we have the input, then the expected result.
 
 > testStep2Cases = [([0,1,2,53,3,4,5,6], [0,1,2,3,4,53,5,6])
 >                  ,([0,1,2,3,4,53],     [0,1,53,2,3,4])
 >                  ,([0,1,2,3,53,4],     [0,53,1,2,3,4])
 >                  ,([53,0,1,2,3],       [0,1,53,2,3])]
-> testStep2 = map (uncurry (==)) $ zip (map (step2 . fst) testStep2Cases) (map snd testStep2Cases)
+> testStep2 = testStep step2 testStep2Cases
 
 For step 3 of keystream generation.
 
@@ -168,12 +167,12 @@ For step 3 of keystream generation.
 >                  ,([0,1,2,53,3,4,5,52]    , [53,3,4,5,52,0,1,2])
 >                  ,([52,53,0,1,2,3,4,5]    , [0,1,2,3,4,5,52,53])
 >                  ,([0,1,2,3,4,5,53,52]    , [53,52,0,1,2,3,4,5])]
-> testStep3 = map (uncurry (==)) $ zip (map (step3 . fst) testStep3Cases) (map snd testStep3Cases)
+> testStep3 = testStep step3 testStep3Cases
 
-For step 3 of keystream generation.
+For step 4 of keystream generation.
 
 > testStep4Cases = [([7,6,53,52,1,30,31,32,4,5,11,13,21,10,8], [5,11,13,21,10,7,6,53,52,1,30,31,32,4,8])
 >                  ,([10,11,12,13,14,15,16,17,18,19,3]       , [14,15,16,17,18,19,10,11,12,13,3])
 >                  ,([10,11,12,13,0]                         , [11,12,13,10,0])
 >                  ,([10,11,12,13,3],                          [10,11,12,13,3])]
-> testStep4 = map (uncurry (==)) $ zip (map (step4 . fst) testStep4Cases) (map snd testStep4Cases)
+> testStep4 = testStep step4 testStep4Cases
