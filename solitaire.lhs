@@ -24,8 +24,6 @@ list of 54 numbers between 0 and 53, where each number occurs exactly once.
 > sortedDeck = take 54 [0..]
 > jokerA = 52
 > jokerB = 53
-> jokerAIndex = fromJust . elemIndex jokerA
-> jokerBIndex = fromJust . elemIndex jokerB
 
 In addition to this, both the plaintext, ciphertext, and keystream can be
 represented as a string a letters A-Z. A has the value 1 and Z the value 26.
@@ -63,42 +61,32 @@ number. This also modifies the state of the deck. Thus this function returns
 both the new state and the output bit. I highly suspect that this can be done in
 a very sexy way by using monads -- if only my Haskell skills were better.
 
-> keystream = tail . map step6 . filter (<52) . map step5 . iterate (step4 . step3 . step2 . step1)
+> keystream = tail . filter (<52) . map step5 . iterate (step4 . step3 . step2 . step1)
 
 1. Find the A joker. Move it one card down (swap with the card beneath it).
    If the joker is at the bottom, move it just below the top card.
 
 > step1 deck
 >    | last deck == jokerA = head deck : jokerA : (init . tail) deck
->    | otherwise           = let start = take (jokerAIndex deck) deck
->                                swap  = deck !! (jokerAIndex deck + 1)
->                                end   = drop (jokerAIndex deck + 2) deck
->                            in start ++ swap : jokerA : end
+>    | [x]         <- deck = [x]
+>    | (x:(y:ys))  <- deck = if x == jokerA then y : jokerA : ys else x : step1 (y:ys)
 
 2. Find the B joker. Move it two cards down. If the joker is the bottom card,
    move it just below the second card. If the joker is one up from the bottom,
    move it just below the top card.
 
-> sublist from to = (take (to - from) . drop from)
 > step2 deck
 >    | last deck == jokerB          = take 2 deck ++ jokerB : (drop 2 . init) deck
 >    | (last . init) deck == jokerB = head deck : jokerB : (tail . delete jokerB) deck
->    | otherwise                    = let start = take (jokerBIndex deck) deck
->                                         swap  = sublist (jokerBIndex deck + 1) (jokerBIndex deck + 3) deck
->                                         end   = drop (jokerBIndex deck + 3) deck
->                                     in start ++ swap ++ jokerB : end
+>    | [x]                  <- deck = [x]
+>    | (x:(y:(z:zs)))       <- deck = if x == jokerB then y : z : jokerB : zs else x : step2 (y:z:zs)
 
 3. Perform a triple cut. That is, swap the cards above the first joker with the
    cards below the second joker.
 
-> firstJokerIndex deck = min (jokerAIndex deck) (jokerBIndex deck)
-> lastJokerIndex deck = max (jokerAIndex deck) (jokerBIndex deck)
-> firstJoker deck = deck !! (firstJokerIndex deck)
-> lastJoker deck = deck !! (lastJokerIndex deck)
-> step3 deck = let start  = take (firstJokerIndex deck) deck
->                  middle = sublist (firstJokerIndex deck) (lastJokerIndex deck + 1) deck
->                  end    = drop (lastJokerIndex deck + 1) deck
->              in end ++ middle ++ start
+> step3 deck = step3' [] deck
+> step3'   a (x:xs) = if x >= jokerA then step3'' [x] xs ++ a else step3' (a ++ [x]) xs
+> step3''  b (x:xs) = if x >= jokerA then xs ++ b ++ [x] else step3'' (b ++ [x]) xs
 
 4. Perform a count cut. Look at the bottom card. Convert it to a number between
    1 and 53 (clubs, diamonds, hearts, spades order; 53 for both jokers). Count
@@ -119,9 +107,8 @@ a very sexy way by using monads -- if only my Haskell skills were better.
 
 6. Convert output card to a number [1,26], i.e. (card mod 26) + 1. However,
    in this implementation we internally assume the range [0,25] so we simply
-   ignore this step here.
+   ignore this step here, and in all the code above.
 
-> step6 = id
 > --step6 = (+1) . flip mod 26
 
 Test cases
@@ -149,7 +136,7 @@ the jokers have not been filtered out.
 
 The following are internal unit tests for various parts of the code.
 
-> unitTestRunner = map errorCatcher $ intercalate [] [testStep1,testStep2,testSublist]
+> unitTestRunner = map errorCatcher $ intercalate [] [testStep1,testStep2,testStep3,testStep4]
 > errorCatcher False = error "Unit test failed"
 > errorCatcher True = True
 
@@ -190,12 +177,3 @@ For step 3 of keystream generation.
 >                  ,([10,11,12,13,0]                         , [11,12,13,10,0])
 >                  ,([10,11,12,13,3],                          [10,11,12,13,3])]
 > testStep4 = map (uncurry (==)) $ zip (map (step4 . fst) testStep4Cases) (map snd testStep4Cases)
-
-Various helper functions
-
-> testSublist = [testSublist_1,testSublist_2,testSublist_3,testSublist_4,testSublist_5]
-> testSublist_1 = sublist 0 5 [0..5] == [0..4]
-> testSublist_2 = sublist 0 0 [0..5] == []
-> testSublist_3 = sublist 5 5 [0..5] == []
-> testSublist_4 = sublist 0 1 [0..5] == [0]
-> testSublist_5 = sublist 3 6 [0..5] == [3,4,5]
