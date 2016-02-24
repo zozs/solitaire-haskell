@@ -33,7 +33,7 @@ when adding, since e.g. A + A = B, but with our representation we would get
 A + A = A unless we're careful. 
 
 > fromLetters = map ((subtract 65) . ord)
-> toLetters = map (chr . (+65))
+> toLetters = map (chr . (+65). flip mod 26)
 > addMod26 a b = ((+1) . flip mod 26) (a + b) -- plaintext + keystream
 > subMod26 a b = (flip mod 26 . (subtract 1)) (a - b) -- ciphertext - keystream
 
@@ -57,11 +57,12 @@ Generating keystream
 --------------------
 
 We need to execute the following steps in order, to get a single keystream
-number. This also modifies the state of the deck. Thus this function returns
-both the new state and the output bit. I highly suspect that this can be done in
-a very sexy way by using monads -- if only my Haskell skills were better.
+number. Step 1 - 4 modify the actual deck (state), while step 5 is only a
+function from the current state to a single keystream number. Thus we iterate
+step 1 - 4 infinitely to create the different states, and for each state we
+apply step 5 to get a keystream number.
 
-> keystream = tail . filter (<52) . map step5 . iterate (step4 . step3 . step2 . step1)
+> keystream = tail . map step6 . filter (<52) . map step5 . iterate (step4 . step3 . step2 . step1)
 
 1. Find the A joker. Move it one card down (swap with the card beneath it).
    If the joker is at the bottom, move it just below the top card.
@@ -106,10 +107,9 @@ a very sexy way by using monads -- if only my Haskell skills were better.
 > step5 deck = head $ drop (topValue deck) deck
 
 6. Convert output card to a number [1,26], i.e. (card mod 26) + 1. However,
-   in this implementation we internally assume the range [0,25] so we simply
-   ignore this step here, and in all the code above.
+   in this implementation we internally assume the range [0,25] though.
 
-> --step6 = (+1) . flip mod 26
+> step6 = flip mod 26
 
 Test cases
 ----------
